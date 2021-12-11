@@ -177,8 +177,8 @@ def main():
         st.image(base_image)
 
     menu = ['None', 'YOLO Model', 'No YOLO Model']
-    st.sidebar.header('Options to infer')
-    choice = st.sidebar.selectbox('Select any inference method', menu)
+    st.sidebar.header('Choose Models')
+    choice = st.sidebar.selectbox('Select method for inference', menu)
 
     if choice == 'YOLO Model':
         import io

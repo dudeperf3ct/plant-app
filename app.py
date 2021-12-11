@@ -42,21 +42,11 @@ def select_apis(base_image, key):
             st.write('Querying Pl@ntNet API')
             api_endpoint = f"https://my-api.plantnet.org/v2/identify/all?api-key={st.secrets['plantnet_key']}"
 
-            # st.sidebar.header('Select organ for identification')
-            # menu1 = ['leaf', 'flower']
-            # sub_choice = st.sidebar.selectbox('Select any of the following', menu1)
-
-            # if sub_choice is not None:
-            # data = {
-            #     'organs': sub_choice
-            # }
-
             files = [
                 ('images', (base_image))
             ]
             
             req = requests.Request('POST', url=api_endpoint, files=files)
-            # req = requests.Request('POST', url=api_endpoint, files=files, data=data)
             prepared = req.prepare()
 
             s = requests.Session()
@@ -199,18 +189,20 @@ def main():
 
                 df = results.pandas().xyxy[0]
                 filter_df = df[df['confidence']>THRESH]
-                st.write(f"Unique classes detected: {filter_df['name'].unique()}")
-                st.write(f"Number of detections per unique class: {dict(filter_df['name'].value_counts())}")
+                if len(filter_df) > 0:
+                    st.write(f"Unique classes detected: {filter_df['name'].unique()}")
+                    st.write(f"Number of detections per unique class: {dict(filter_df['name'].value_counts())}")
+                    filtered_images = []
+                    for _, row in filter_df.iterrows():
+                        xmin, xmax, ymin, ymax = int(row['xmin']), int(row['xmax']), int(row['ymin']), int(row['ymax'])
+                        extract_img = img_arr[ymin:ymax, xmin:xmax]
+                        # extract_img_bin =  bytes(Image.fromarray(extract_img).tobytes())
+                        filtered_images.append(extract_img)
+                    plot_grid(filter_df, filtered_images)
 
-                filtered_images = []
-                for _, row in filter_df.iterrows():
-                    xmin, xmax, ymin, ymax = int(row['xmin']), int(row['xmax']), int(row['ymin']), int(row['ymax'])
-                    extract_img = img_arr[ymin:ymax, xmin:xmax]
-                    # extract_img_bin =  bytes(Image.fromarray(extract_img).tobytes())
-                    filtered_images.append(extract_img)
+                else:
+                    st.write(f"No detection at confidence = {THRESH}. Lower the threshold")
 
-                plot_grid(filter_df, filtered_images)
- 
     elif choice == 'No YOLO Model':
         select_apis(base_image, 'select_api')
 

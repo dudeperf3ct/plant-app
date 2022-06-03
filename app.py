@@ -241,7 +241,7 @@ def plot_stats(data, col):
         sub_df[col] = sub_df[col].apply(lambda x: calendar.month_abbr[int(x)])
     if col == "level0Name":
         sub_df = sub_df[:10]
-        labels = {"level0Name": "Country"}
+        labels = {"level0Name": "country"}
     fig = px.bar(sub_df, y="count", x=col, labels=labels)
     st.plotly_chart(fig, use_container_width=True)
 

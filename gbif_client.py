@@ -25,9 +25,9 @@ class GbifClient:
         )
         self.y = occ.search(taxonKey=self.get_species_key(), limit=1)
         self.results = self.y["results"][0]
-        print(self.x)
-        print(self.y)
-        print(self.results)
+        # print(self.x)
+        # print(self.y)
+        # print(self.results)
 
     def get_key(self) -> int:
         return self.results["key"]

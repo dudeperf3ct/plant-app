@@ -242,8 +242,7 @@ def plot_stats(data, col):
     if col == "level0Name":
         sub_df = sub_df[:10]
         labels = {"level0Name": "Country"}
-    if labels is not None:
-        fig = px.bar(sub_df, y="count", x=col, labels=labels)
+    fig = px.bar(sub_df, y="count", x=col, labels=labels)
     st.plotly_chart(fig, use_container_width=True)
 
 

@@ -228,6 +228,7 @@ def plot_basisrecord(data):
 
 
 def plot_stats(data, col):
+    labels = None
     if col == "level0Name":
         st.write(f"Occurrences per top 10 countries")
     else:
@@ -240,7 +241,9 @@ def plot_stats(data, col):
         sub_df[col] = sub_df[col].apply(lambda x: calendar.month_abbr[int(x)])
     if col == "level0Name":
         sub_df = sub_df[:10]
-    fig = px.bar(sub_df, y="count", x=col)
+        labels = {"level0Name": "Country"}
+    if labels is not None:
+        fig = px.bar(sub_df, y="count", x=col, labels=labels)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -287,14 +290,23 @@ def gbif_client(row):
     st.table(gb_df)
     st.write("Similar Images")
     urls, titles = gb.get_similar_images()
-    plot_grid(titles, urls)
+    if len(urls) > 0 and len(titles) > 0:
+        success = True
+    else:
+        success = False
+        st.write("No similar images found")
+    if success:
+        plot_grid(titles, urls)
     with st.spinner(f"Working some magic..."):
         data = gb.download_dataset()
-    plot_basisrecord(data)
-    plot_stats(data, "year")
-    plot_stats(data, "month")
-    plot_stats(data, "level0Name")
-    plot_map(data)
+    if len(data) > 0:
+        plot_basisrecord(data)
+        plot_stats(data, "year")
+        plot_stats(data, "month")
+        plot_stats(data, "level0Name")
+        plot_map(data)
+    else:
+        st.write("Oh no!! Download from GBIF unsuccessful. Try Again!")
 
 
 def main():
@@ -387,7 +399,9 @@ def main():
                     )
 
     elif choice == "No YOLO Model":
-        _ = select_apis(base_image, "select_api")
+        df = select_apis(base_image, "select_api")
+        if len(df) > 0:
+            gbif_client(df.iloc[0])
 
 
 if __name__ == "__main__":

@@ -25,6 +25,9 @@ class GbifClient:
         )
         self.y = occ.search(taxonKey=self.get_species_key(), limit=1)
         self.results = self.y["results"][0]
+        print(self.x)
+        print(self.y)
+        print(self.results)
 
     def get_key(self) -> int:
         return self.results["key"]
@@ -35,18 +38,21 @@ class GbifClient:
     def get_similar_images(self):
         media = self.results["media"]
         urls, extra_data = [], []
-        for m in media:
-            if "jpeg" in m["identifier"]:
-                urls.append(m["identifier"])
-                extra_data.append(
-                    {
-                        "publisher": m["publisher"],
-                        "creator": m["creator"],
-                        "references": m["references"],
-                    }
-                )
-        extra_data_df = pd.DataFrame({"name": extra_data})
-        return urls, extra_data_df
+        if len(media) > 0:
+            for m in media:
+                if "jpeg" in m["identifier"]:
+                    urls.append(m["identifier"])
+                    extra_data.append(
+                        {
+                            "publisher": m["publisher"],
+                            "creator": m["creator"],
+                            "references": m["references"],
+                        }
+                    )
+            extra_data_df = pd.DataFrame({"name": extra_data})
+            return urls, extra_data_df
+        else:
+            return [], []
 
     def get_species_key(self) -> int:
         return self.x["speciesKey"]
@@ -74,7 +80,10 @@ class GbifClient:
             pwd=st.secrets["GBIF_PWD"],
             email=st.secrets["GBIF_EMAIL"],
         )
-        req = occ.download_get(download_key)
+        try:
+            req = occ.download_get(download_key)
+        except Exception as e:
+            return []
         filename = "occurrence.txt"
         folder_name = req["key"]
         zip = ZipFile(f"{folder_name}.zip")

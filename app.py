@@ -7,11 +7,20 @@ from io import BytesIO
 import calendar
 import plotly.express as px
 import logging
+import io
+import torch
+from PIL import Image
+import numpy as np
 
 logger = logging.getLogger()
 logger.disabled = False
 
 from gbif_client import GbifClient
+
+
+@st.cache
+def load_model():
+    return torch.hub.load("ultralytics/yolov5", "custom", "models/yolov5s_weights.pt")
 
 
 def plot_grid(filter_df, filtered_images):
@@ -329,14 +338,7 @@ def main():
     choice = st.sidebar.selectbox("Select method for inference", menu)
 
     if choice == "YOLO Model":
-        import io
-        import torch
-        from PIL import Image
-        import numpy as np
-
-        model = torch.hub.load(
-            "ultralytics/yolov5", "custom", "models/yolov5s_weights.pt"
-        )
+        model = load_model()
         if base_image is not None:
             THRESH = st.slider("Threshold for YOLO detection", 0.0, 1.0, 0.5)
             with st.spinner(f"Applying AI magic..."):

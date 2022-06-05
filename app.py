@@ -31,7 +31,7 @@ def load_model():
 
 def plot_grid(filter_df, filtered_images):
     idx = 0
-    for _ in range(len(filtered_images) - 1):
+    for _ in range(len(filtered_images)):
         col1, col2, col3, col4 = st.columns(4)
 
         if idx < len(filtered_images):
@@ -407,12 +407,9 @@ def gbif_client(row):
     st.write("Similar Images")
     urls, titles = gb.get_similar_images()
     if len(urls) > 0 and len(titles) > 0:
-        success = True
-    else:
-        success = False
-        st.write("No similar images found")
-    if success:
         plot_grid(titles, urls)
+    else:
+        st.write("No similar images found")
     with st.spinner(f"Working some magic..."):
         data = gb.download_dataset()
     if len(data) > 0:

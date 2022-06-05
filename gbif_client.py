@@ -40,7 +40,7 @@ class GbifClient:
         urls, extra_data = [], []
         if len(media) > 0:
             for m in media:
-                if "jpeg" in m["identifier"]:
+                if "s3" in m["identifier"]:
                     urls.append(m["identifier"])
                     extra_data.append(
                         {

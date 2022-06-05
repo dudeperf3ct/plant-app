@@ -175,7 +175,6 @@ def select_apis(base_image, key, orig_image):
                 [],
                 [],
                 [],
-                [],
             )
             st.write(f"Retriving top {len(json_result['suggestions'])} results")
             for i in range(len(json_result["suggestions"])):

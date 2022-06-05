@@ -2,15 +2,21 @@ import streamlit as st
 import requests
 import json
 import pandas as pd
+import os
 import base64
 from io import BytesIO
 import calendar
 import plotly.express as px
 import logging
 import io
+import copy
 import torch
 from PIL import Image
 import numpy as np
+
+from wolframclient.language import wlexpr
+from wolframclient.evaluation import SecuredAuthenticationKey, WolframCloudSession
+from wolfram_client import WolframClient
 
 logger = logging.getLogger()
 logger.disabled = False
@@ -68,8 +74,8 @@ def plot_grid(filter_df, filtered_images):
             break
 
 
-def select_apis(base_image, key):
-    menu = ["None", "Pl@ntNet API", "Plant.id API"]
+def select_apis(base_image, key, orig_image):
+    menu = ["None", "Pl@ntNet API", "Plant.id API", "Wolfram API"]
     st.sidebar.header("API Selection")
     choice = st.sidebar.selectbox("Select any API", menu, key=key)
 
@@ -77,7 +83,11 @@ def select_apis(base_image, key):
         return ""
 
     if choice == "Pl@ntNet API" and base_image is not None:
-        st.write("Querying Pl@ntNet API")
+        add_seprator()
+        st.markdown(
+            "<h3 style='text-align: center; color: red;'>Pl@ntNet API</h3>",
+            unsafe_allow_html=True,
+        )
         api_endpoint = f"https://my-api.plantnet.org/v2/identify/all?api-key={st.secrets['plantnet_key']}"
 
         files = [("images", (base_image))]
@@ -125,8 +135,11 @@ def select_apis(base_image, key):
             )
 
     elif choice == "Plant.id API" and base_image is not None:
-        st.write("Querying Plant.id API")
-
+        add_seprator()
+        st.markdown(
+            "<h3 style='text-align: center; color: red;'>Plant.id API</h3>",
+            unsafe_allow_html=True,
+        )
         params = {
             "api_key": st.secrets["plantid_key"],
             "images": [base64.b64encode(base_image).decode("ascii")],
@@ -155,15 +168,7 @@ def select_apis(base_image, key):
         json_result = response.json()
 
         if response.status_code == 200:
-            (
-                scores,
-                common_names,
-                wiki_url,
-                genus_names,
-                family_names,
-                sci_names,
-                taxo,
-            ) = (
+            (scores, common_names, wiki_url, genus_names, family_names, sci_names,) = (
                 [],
                 [],
                 [],
@@ -209,6 +214,109 @@ def select_apis(base_image, key):
             st.write(
                 f"Querying failed with response status code {response.status_code}"
             )
+
+    elif choice == "Wolfram API" and base_image is not None:
+        add_seprator()
+        st.markdown(
+            "<h3 style='text-align: center; color: red;'>Wolfram API</h3>",
+            unsafe_allow_html=True,
+        )
+        wl = WolframClient()
+        img_name = orig_image.name
+        img = Image.open(io.BytesIO(base_image))
+        img.save(f"{img_name}")
+        parsed_name = wl.find_entities(img_name)
+        sak = SecuredAuthenticationKey(
+            st.secrets["ConsumerKey"],
+            st.secrets["ConsumerSecret"],
+        )
+        session = WolframCloudSession(credentials=sak)
+        session.start()
+        species_name = ""
+        if session.authorized():
+            find_name = session.function(
+                wlexpr(
+                    """
+                EntityValue[Entity["Concept", #1], "Name"] &
+                """
+                )
+            )
+            species_name = find_name(parsed_name)
+            print(species_name)
+        if len(species_name) != 0:
+            appid = st.secrets["APP_ID"]
+            query_url = f"https://api.wolframalpha.com/v2/query?input={species_name}&format=plaintext&output=JSON&appid={appid}"
+            json_result = requests.get(query_url).json()
+
+            if json_result["queryresult"]["success"]:
+                (
+                    sci_names,
+                    kingdom,
+                    phylum,
+                    kls,
+                    order,
+                    family,
+                    genus,
+                    species,
+                    wiki_url,
+                ) = ("", "", "", "", "", "", "", "", "")
+                for i in range(len(json_result["queryresult"]["pods"])):
+                    if (
+                        json_result["queryresult"]["pods"][i]["title"]
+                        == "Scientific name"
+                    ):
+                        sci_names = json_result["queryresult"]["pods"][i]["subpods"][0][
+                            "plaintext"
+                        ]
+                    if "Taxonomy" in json_result["queryresult"]["pods"][i]["title"]:
+                        taxonomy = json_result["queryresult"]["pods"][i]["subpods"][0][
+                            "plaintext"
+                        ]
+                        (
+                            kingdom,
+                            phylum,
+                            kls,
+                            order,
+                            family,
+                            genus,
+                            species,
+                        ) = taxonomy.split("\n")
+                        kingdom, phylum, kls, order, family, genus, species = (
+                            kingdom.split("|")[-1].strip("\n"),
+                            phylum.split("|")[-1].strip("\n"),
+                            kls.split("|")[-1].strip("\n"),
+                            order.split("|")[-1].strip("\n"),
+                            family.split("|")[-1].strip("\n"),
+                            genus.split("|")[-1].strip("\n"),
+                            species.split("|")[-1].strip("\n"),
+                        )
+                    if (
+                        "Wikipedia summary"
+                        in json_result["queryresult"]["pods"][i]["title"]
+                    ):
+                        wiki_url = json_result["queryresult"]["pods"][i]["subpods"][0][
+                            "infos"
+                        ]["links"]["url"]
+
+                df = pd.DataFrame(
+                    {
+                        "scientificName": sci_names,
+                        "kingdom": kingdom,
+                        "phylum": phylum,
+                        "class": kls,
+                        "family": family,
+                        "genus": genus,
+                        "species": species,
+                        "Wikipedia URL": wiki_url,
+                    },
+                    index=[0],
+                )
+                st.table(df)
+                os.remove(img_name)
+                return df
+        else:
+            st.write(f"Querying failed. Please check the image and try again.")
+            return ""
 
 
 def add_seprator():
@@ -330,6 +438,7 @@ def main():
 
     base_image = st.file_uploader("Upload a plant image", type=["jpg", "jpeg", "png"])
     if base_image is not None:
+        orig_image = copy.deepcopy(base_image)
         base_image = base_image.read()
         st.image(base_image)
 
@@ -391,16 +500,16 @@ def main():
                     ).convert("RGB")
                     buf = BytesIO()
                     pil_image.save(buf, format="JPEG")
-                    df = select_apis(buf.getvalue(), "select_api")
+                    df = select_apis(buf.getvalue(), "select_api", orig_image)
                     if len(df) > 0:
                         gbif_client(df.iloc[0])
                 else:
                     st.write(
-                        f"No detection at confidence = {THRESH}. Lower the threshold"
+                        f"No detection at confidence = {THRESH}. Lower the threshold or maybe only one object is present, try using No YOLO Model approach in that case."
                     )
 
     elif choice == "No YOLO Model":
-        df = select_apis(base_image, "select_api")
+        df = select_apis(base_image, "select_api", orig_image)
         if len(df) > 0:
             gbif_client(df.iloc[0])
 

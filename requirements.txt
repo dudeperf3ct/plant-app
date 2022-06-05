@@ -14,3 +14,4 @@ pandas>=1.1.4
 seaborn>=0.11.0
 plotly==5.8.0
 ./pygbif/dist/pygbif-0.6.0-py2.py3-none-any.whl
+wolframclient
